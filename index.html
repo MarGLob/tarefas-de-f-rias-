@@ -3,257 +3,246 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Meta tags para melhorar a experiência ao adicionar à tela inicial do celular -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#3b82f6">
-    
-    <title>Tarefas Casa</title>
+    <title>Rotina da Viagem</title>
+    <!-- Tailwind CSS para um design moderno -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome para os ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
-        }
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #c1c1c1; 
-            border-radius: 4px;
-        }
-        
-        .task-checkbox:checked + label {
-            text-decoration: line-through;
-            color: #9ca3af;
-        }
-        
-        .sticky-date {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        /* Melhorando a área de toque para celular */
-        .task-row {
-            min-height: 3rem;
-        }
+        /* Suavização de transições */
+        .task-enter { transition: all 0.3s ease-out; opacity: 0; transform: translateY(-10px); }
+        .task-enter-active { opacity: 1; transform: translateY(0); }
     </style>
 </head>
-<body class="antialiased min-h-screen pb-12">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans antialiased pb-24 transition-colors duration-300">
 
-    <div class="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
-        
-        <!-- Header Section -->
-        <header class="bg-white rounded-2xl shadow-sm p-6 mb-8 text-center border-t-4 border-blue-500">
-            <h1 class="text-2xl font-bold text-gray-800 mb-4">Controle de Tarefas</h1>
-            <div class="bg-blue-50 text-blue-800 p-4 rounded-lg text-sm inline-block">
-                <i class="fa-solid fa-calendar-days mr-2"></i>
-                <span class="font-semibold">Período:</span> 21/09/2026 até 30/10/2026
-            </div>
-            <div class="mt-4 flex justify-center space-x-4">
-                <button id="resetBtn" class="text-sm text-red-500 hover:text-red-700 transition-colors p-2">
-                    <i class="fa-solid fa-rotate-left mr-1"></i> Limpar Seleções
-                </button>
-            </div>
-        </header>
+    <!-- Cabeçalho Fixo -->
+    <header class="bg-blue-600 dark:bg-blue-800 text-white p-4 sticky top-0 z-10 shadow-md">
+        <h1 class="text-xl font-bold text-center">Checklist da Viagem</h1>
+        <p class="text-sm text-center text-blue-200 mt-1" id="header-date"></p>
+    </header>
 
-        <!-- Main Content Area -->
-        <main>
-            <div id="loading" class="text-center py-10">
-                <i class="fa-solid fa-spinner fa-spin text-3xl text-blue-500"></i>
-                <p class="mt-2 text-gray-500">Carregando lista...</p>
-            </div>
-            
-            <div id="days-container" class="space-y-6 hidden">
-                <!-- Days will be dynamically injected here by JS -->
-            </div>
-        </main>
+    <main class="max-w-md mx-auto p-4" id="app-container">
+        <!-- Os dias serão injetados aqui via JavaScript -->
+    </main>
+
+    <!-- Botão Adicionar Dia Fixo na Base -->
+    <div class="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] flex justify-center">
+        <button onclick="addNewDay()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg flex items-center gap-2 transition-transform transform active:scale-95">
+            <i class="fa-solid fa-calendar-plus"></i> Adicionar Novo Dia
+        </button>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const startDate = new Date(2026, 8, 21); // Mês 8 = Setembro, Dia 21
-            const totalDays = 40;
-            const container = document.getElementById('days-container');
-            const loading = document.getElementById('loading');
-            const resetBtn = document.getElementById('resetBtn');
+        const STORAGE_KEY = 'tarefas_viagem_v3';
+        let appData = [];
 
-            // --- Definição das Tarefas ---
-            const getTasksForDate = (date, dayIndex) => {
-                const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Segunda...
-                const dateString = date.toLocaleDateString('pt-BR');
-                const isDay0410 = date.getDate() === 4 && date.getMonth() === 9; // 04 de Outubro
+        // Data de início estipulada
+        const startDate = new Date(2026, 8, 21); // 21/09/2026
 
-                // Tarefas diárias
+        function formatDateBR(date) {
+            return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).toUpperCase();
+        }
+
+        // Gera os dados iniciais se não houver nada no localStorage
+        function generateInitialData() {
+            let data = [];
+            for (let i = 0; i < 40; i++) {
+                let currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                
+                let dayOfWeek = currentDate.getDay(); // 0 = Dom, 1 = Seg... 6 = Sáb
+                let dateString = currentDate.toISOString().split('T')[0];
+                let isBillDay = (currentDate.getDate() === 4 && currentDate.getMonth() === 9); // 04/10
+
                 let tasks = [
-                    { id: `t1_${dayIndex}`, desc: "Passar aspirador de pó (focar no seu quarto)", icon: "fa-solid fa-broom" },
-                    { id: `t2_${dayIndex}`, desc: "Colocar ração para os gatos", icon: "fa-solid fa-cat" },
-                    { id: `t3_${dayIndex}`, desc: "Limpar a areia dos gatos", icon: "fa-solid fa-poop" },
-                    { id: `t4_${dayIndex}`, desc: "Trocar a água dos gatos", icon: "fa-solid fa-droplet" }
+                    { id: crypto.randomUUID(), text: 'Passar o aspirador de pó (focar no quarto)', done: false },
+                    { id: crypto.randomUUID(), text: 'Cuidar do Tom (colocar ração, água nova e limpar areia)', done: false }
                 ];
 
-                // 1. Plantas de baixo (De 2 em 2 dias)
-                if (dayIndex % 2 === 0) {
-                    tasks.unshift({ id: `p1_${dayIndex}`, desc: "Jogar água nas plantas de baixo (manhã)", icon: "fa-solid fa-leaf" });
+                if (i % 2 === 0) tasks.push({ id: crypto.randomUUID(), text: 'Jogar água nas plantas de baixo (manhã)', done: false });
+                if (dayOfWeek === 2 || dayOfWeek === 5) tasks.push({ id: crypto.randomUUID(), text: 'Jogar água nas plantas do terraço', done: false });
+                if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) tasks.push({ id: crypto.randomUUID(), text: 'Tirar lixo para fora (banheiro/cozinha) - esquina', done: false });
+                if (dayOfWeek === 6) {
+                    tasks.push({ id: crypto.randomUUID(), text: 'Trocar roupa de cama e toalhas', done: false });
+                    tasks.push({ id: crypto.randomUUID(), text: 'Colocar cuecas e uniforme na máquina para lavar', done: false });
                 }
+                if (isBillDay) tasks.unshift({ id: crypto.randomUUID(), text: '⚠️ PAGAR CONTAS (Água e Luz)', done: false });
 
-                // 2. Plantas do terraço (Terças e Sextas)
-                if (dayOfWeek === 2 || dayOfWeek === 5) {
-                    tasks.unshift({ id: `p2_${dayIndex}`, desc: "Jogar água nas plantas do terraço", icon: "fa-brands fa-pagelines" });
+                data.push({
+                    id: crypto.randomUUID(),
+                    date: dateString,
+                    label: formatDateBR(currentDate),
+                    tasks: tasks,
+                    isOpen: false
+                });
+            }
+            return data;
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            render();
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                appData = JSON.parse(saved);
+            } else {
+                appData = generateInitialData();
+                saveData();
+            }
+            
+            // Define o dia atual no cabeçalho e tenta abrir o card de hoje
+            document.getElementById('header-date').innerText = "Hoje é " + formatDateBR(new Date());
+            openTodayCard();
+            render();
+        }
+
+        function openTodayCard() {
+            let todayStr = new Date().toISOString().split('T')[0];
+            let found = false;
+            appData.forEach(day => {
+                if (day.date === todayStr) {
+                    day.isOpen = true;
+                    found = true;
+                } else {
+                    day.isOpen = false;
                 }
+            });
+        }
 
-                // 3. Roupa de cama e banho (Sábado)
-                if (dayOfWeek === 6) { 
-                    tasks.push({ id: `l1_${dayIndex}`, desc: "Trocar roupa de cama e toalha", icon: "fa-solid fa-bed" });
-                    tasks.push({ id: `l2_${dayIndex}`, desc: "Lavar: cuecas, blusas de uniforme", icon: "fa-solid fa-shirt" });
-                }
+        function toggleDay(dayId) {
+            let day = appData.find(d => d.id === dayId);
+            day.isOpen = !day.isOpen;
+            saveData();
+        }
 
-                // 4. Lixo (Segunda, Quarta, Sexta)
-                if (dayOfWeek === 1 || dayOfWeek === 3 || dayOfWeek === 5) {
-                    tasks.push({ id: `g1_${dayIndex}`, desc: "Tirar lixo (banheiro, cozinha) para fora", icon: "fa-solid fa-trash-can" });
-                }
+        function toggleTask(dayId, taskId) {
+            let day = appData.find(d => d.id === dayId);
+            let task = day.tasks.find(t => t.id === taskId);
+            task.done = !task.done;
+            saveData();
+        }
 
-                // 5. Pagar contas (Dia 04/10)
-                if (isDay0410) {
-                    tasks.push({ id: `b1_${dayIndex}`, desc: "⚠️ PAGAR CONTAS (água e luz)", icon: "fa-solid fa-file-invoice-dollar", color: "text-amber-600 font-bold" });
-                }
+        function addTask(dayId) {
+            let input = document.getElementById(`input-${dayId}`);
+            let text = input.value.trim();
+            if (text) {
+                let day = appData.find(d => d.id === dayId);
+                day.tasks.push({ id: crypto.randomUUID(), text: text, done: false });
+                input.value = '';
+                saveData();
+            }
+        }
 
-                return tasks;
-            };
+        function deleteTask(dayId, taskId) {
+            if(confirm('Tem certeza que deseja apagar esta tarefa?')) {
+                let day = appData.find(d => d.id === dayId);
+                day.tasks = day.tasks.filter(t => t.id !== taskId);
+                saveData();
+            }
+        }
 
-            // --- Geração da Interface ---
-            const renderDays = () => {
-                let htmlContent = '';
+        function editTask(dayId, taskId) {
+            let day = appData.find(d => d.id === dayId);
+            let task = day.tasks.find(t => t.id === taskId);
+            let newText = prompt('Edite a tarefa:', task.text);
+            if (newText !== null && newText.trim() !== '') {
+                task.text = newText.trim();
+                saveData();
+            }
+        }
+
+        function addNewDay() {
+            let lastDay = appData[appData.length - 1];
+            let nextDate = new Date(lastDay.date);
+            nextDate.setDate(nextDate.getDate() + 1);
+            
+            appData.push({
+                id: crypto.randomUUID(),
+                date: nextDate.toISOString().split('T')[0],
+                label: formatDateBR(nextDate),
+                tasks: [],
+                isOpen: true
+            });
+            saveData();
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+
+        function calculateProgress(tasks) {
+            if (tasks.length === 0) return 0;
+            let done = tasks.filter(t => t.done).length;
+            return Math.round((done / tasks.length) * 100);
+        }
+
+        function render() {
+            const container = document.getElementById('app-container');
+            container.innerHTML = '';
+
+            appData.forEach(day => {
+                let progress = calculateProgress(day.tasks);
+                let progressColor = progress === 100 ? 'bg-green-500' : 'bg-blue-500';
+
+                let dayCard = document.createElement('div');
+                dayCard.className = 'mb-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden';
                 
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
+                // Header do Dia (Clicável)
+                let header = `
+                    <div class="p-4 flex justify-between items-center cursor-pointer bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors" onclick="toggleDay('${day.id}')">
+                        <div class="flex items-center gap-3">
+                            <h2 class="font-semibold text-lg">${day.label}</h2>
+                            ${progress === 100 && day.tasks.length > 0 ? '<i class="fa-solid fa-circle-check text-green-500 text-xl"></i>' : ''}
+                        </div>
+                        <i class="fa-solid fa-chevron-${day.isOpen ? 'up' : 'down'} text-gray-500"></i>
+                    </div>
+                    <div class="h-1.5 w-full bg-gray-200 dark:bg-gray-600">
+                        <div class="h-1.5 ${progressColor} transition-all duration-500 ease-in-out" style="width: ${progress}%"></div>
+                    </div>
+                `;
 
-                for (let i = 0; i < totalDays; i++) {
-                    const currentDate = new Date(startDate);
-                    currentDate.setDate(startDate.getDate() + i);
-                    
-                    const dateStr = currentDate.toLocaleDateString('pt-BR');
-                    const dayName = currentDate.toLocaleDateString('pt-BR', { weekday: 'long' });
-                    const dayNameCap = dayName.charAt(0).toUpperCase() + dayName.slice(1);
-                    
-                    const tasks = getTasksForDate(currentDate, i);
-                    const isToday = currentDate.getTime() === today.getTime();
-                    
-                    let dayCardClasses = "bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden";
-                    let headerClasses = "bg-gray-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center sticky-date";
-                    
-                    if (isToday) {
-                        dayCardClasses += " ring-2 ring-blue-500 shadow-md";
-                        headerClasses = "bg-blue-500 text-white px-4 py-3 flex justify-between items-center sticky-date";
-                    }
-
-                    let tasksHtml = tasks.map(task => {
-                        const iconColor = task.color || "text-gray-400";
-                        const textColor = task.color || "text-gray-700";
-                        return `
-                            <div class="task-row flex items-center p-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
-                                <div class="flex-shrink-0 flex items-center h-full">
-                                    <input type="checkbox" id="${task.id}" class="task-checkbox h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                // Corpo de Tarefas
+                let body = '';
+                if (day.isOpen) {
+                    let tasksHtml = day.tasks.map(task => `
+                        <div class="flex items-start justify-between p-3 border-b dark:border-gray-700 group hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                            <label class="flex items-start gap-3 cursor-pointer flex-1">
+                                <div class="relative flex items-center justify-center mt-1">
+                                    <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask('${day.id}', '${task.id}')" class="peer h-6 w-6 cursor-pointer appearance-none rounded-md border-2 border-gray-300 dark:border-gray-600 checked:border-blue-600 checked:bg-blue-600 transition-all">
+                                    <i class="fa-solid fa-check absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none text-sm"></i>
                                 </div>
-                                <label for="${task.id}" class="ml-4 flex-1 block cursor-pointer select-none py-1">
-                                    <i class="${task.icon} ${iconColor} w-6 text-center mr-2"></i>
-                                    <span class="${textColor}">${task.desc}</span>
-                                </label>
-                            </div>
-                        `;
-                    }).join('');
-
-                    htmlContent += `
-                        <div class="${dayCardClasses}" id="day-${i}">
-                            <div class="${headerClasses}">
-                                <div>
-                                    <h2 class="text-lg font-semibold ${isToday ? 'text-white' : 'text-gray-800'}">Dia ${i + 1}</h2>
-                                    <p class="text-sm ${isToday ? 'text-blue-100' : 'text-gray-500'}">${dayNameCap}, ${dateStr}</p>
-                                </div>
-                                ${isToday ? '<span class="px-2 py-1 bg-white text-blue-600 text-xs font-bold rounded shadow-sm">HOJE</span>' : ''}
-                            </div>
-                            <div class="p-1">
-                                ${tasksHtml}
+                                <span class="flex-1 mt-1 leading-tight ${task.done ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'} transition-all">${task.text}</span>
+                            </label>
+                            <div class="flex gap-2 ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                <button onclick="editTask('${day.id}', '${task.id}')" class="text-gray-400 hover:text-blue-500 p-2"><i class="fa-solid fa-pen text-sm"></i></button>
+                                <button onclick="deleteTask('${day.id}', '${task.id}')" class="text-gray-400 hover:text-red-500 p-2"><i class="fa-solid fa-trash text-sm"></i></button>
                             </div>
                         </div>
+                    `).join('');
+
+                    if (day.tasks.length === 0) {
+                        tasksHtml = `<p class="text-center text-gray-400 dark:text-gray-500 py-4 text-sm">Nenhuma tarefa para este dia.</p>`;
+                    }
+
+                    // Input de Adicionar Tarefa
+                    let inputHtml = `
+                        <div class="p-3 bg-gray-50 dark:bg-gray-750 flex gap-2">
+                            <input type="text" id="input-${day.id}" placeholder="Adicionar nova tarefa..." class="flex-1 px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" onkeypress="if(event.key === 'Enter') addTask('${day.id}')">
+                            <button onclick="addTask('${day.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"><i class="fa-solid fa-plus"></i></button>
+                        </div>
                     `;
+
+                    body = `<div class="task-enter-active">${tasksHtml}${inputHtml}</div>`;
                 }
 
-                container.innerHTML = htmlContent;
-                loading.classList.add('hidden');
-                container.classList.remove('hidden');
+                dayCard.innerHTML = header + body;
+                container.appendChild(dayCard);
+            });
+        }
 
-                setupStateManagement();
-                scrollToToday();
-            };
-
-            // --- Gerenciamento de Estado (Local Storage) ---
-            const setupStateManagement = () => {
-                const checkboxes = document.querySelectorAll('.task-checkbox');
-                
-                // Carrega o estado salvo do navegador
-                const savedState = JSON.parse(localStorage.getItem('minhasTarefasState')) || {};
-                
-                checkboxes.forEach(checkbox => {
-                    if (savedState[checkbox.id]) {
-                        checkbox.checked = true;
-                    }
-                    
-                    // Salva automaticamente a cada clique
-                    checkbox.addEventListener('change', (e) => {
-                        const state = JSON.parse(localStorage.getItem('minhasTarefasState')) || {};
-                        state[e.target.id] = e.target.checked;
-                        localStorage.setItem('minhasTarefasState', JSON.stringify(state));
-                    });
-                });
-
-                resetBtn.addEventListener('click', () => {
-                    if(confirm("Deseja realmente apagar todo o seu progresso?")) {
-                        localStorage.removeItem('minhasTarefasState');
-                        checkboxes.forEach(cb => cb.checked = false);
-                    }
-                });
-            };
-
-            const scrollToToday = () => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                let todayIndex = -1;
-                for (let i = 0; i < totalDays; i++) {
-                    const d = new Date(startDate);
-                    d.setDate(startDate.getDate() + i);
-                    if(d.getTime() === today.getTime()){
-                        todayIndex = i;
-                        break;
-                    }
-                }
-
-                if (todayIndex !== -1) {
-                    const todayElement = document.getElementById(`day-${todayIndex}`);
-                    if(todayElement) {
-                        setTimeout(() => {
-                            // Calcula a posição considerando uma pequena margem para o cabeçalho não cobrir
-                            const yOffset = -20; 
-                            const y = todayElement.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                            window.scrollTo({top: y, behavior: 'smooth'});
-                        }, 300);
-                    }
-                }
-            };
-
-            // Iniciar a aplicação
-            renderDays();
-        });
+        // Inicializa o app
+        document.addEventListener('DOMContentLoaded', loadData);
     </script>
 </body>
 </html>
